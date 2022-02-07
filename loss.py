@@ -20,7 +20,7 @@ class YOLOLoss(nn.Module):
         obj = target[..., 0] == 1
         no_obj = target[..., 0] == 0
         
-        no_obj_loss = self.bce((predictions[..., 0:1][no_obj], (target[..., 0:1][no_obj])))
+        no_obj_loss = self.bce((predictions[..., 0:1][no_obj]), (target[..., 0:1][no_obj]))
         
         # Object Loss
         anchors = anchors.reshape(1, 3, 1, 1, 2)
@@ -30,8 +30,15 @@ class YOLOLoss(nn.Module):
         
         # Box Co-ordinate Loss
         predictions[..., 1:3] = self.sigmoid(predictions[..., 1:3])
-        targets[..., 3:5] = torch.log((1e-16 + target[..., 3:5] / anchors))
+        target[..., 3:5] = torch.log((1e-16 + target[..., 3:5] / anchors))
         box_loss = self.mse(predictions[..., 1:5][obj], target[..., 1:5][obj])
 
         # Class loss
         class_loss = self.entropy((predictions[..., 5:][obj]), target[..., 5][obj].long())
+        
+        return (
+            self.lambda_box * box_loss
+            + self.lambda_class * class_loss
+            + self.lambda_no_obj * no_obj_loss
+            + self.lambda_obj * obj_loss
+        )
